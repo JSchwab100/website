@@ -47,12 +47,13 @@ import os
 import json
 import requests
 import bleach
+import time
 # from utils.charts import generate_color_palette
 # from .models import Student, Project, Contact
 from .forms import ClientRegistrationForm, RegistrationForm, UserLoginForm, ClientLoginForm, UserPasswordResetForm, UserPasswordChangeForm, UserSetPasswordForm, StudentForm, sd_JoinUsForm, projects_JoinUsForm, NewWebURL, Upskilling_JoinProjectForm
 
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import View
 from django.contrib.auth.views import LoginView
 from django_ratelimit.decorators import ratelimit
@@ -73,8 +74,6 @@ from .models import Smishingdetection_join_us, DDT_contact
 # from utils.charts import generate_color_palette
 # from .models import Student, Project, Contact
 # from .forms import RegistrationForm, UserLoginForm, UserPasswordResetForm, UserPasswordChangeForm, UserSetPasswordForm, StudentForm, sd_JoinUsForm, NewWebURL
- 
- 
 
 from utils.charts import generate_color_palette, colorPrimary, colorSuccess, colorDanger
 from utils.passwords import gen_password
@@ -354,10 +353,12 @@ def login_with_otp(request):
             otp = random.randint(100000, 999999)
             request.session['otp'] = otp
             request.session['user_id'] = user.id
+            request.session['otp_timestamp'] = time.time()  #Set time
+            request.session['otp_attempts'] = 0  # Reset attempts on new OTP
 
             send_mail(
                 subject="Your OTP Code",
-                message=f"Your OTP code is {otp}. Use it to verify your login.",
+                message=f"Your OTP code is {otp}, it expires in 5 minutes. Use it to verify your login.",
                 from_email="deakinhardhatwebsite@gmail.com",
                 recipient_list=[user.email],
                 fail_silently=False,
@@ -377,35 +378,59 @@ def login_with_otp(request):
 
     return render(request, 'accounts/sign-in.html')
 
-
-
-
+# Verify OTP
 def verify_otp(request):
     """
     OTP verification during login.
+    Locks out after 5 failed attempts or 5 minutes by redirecting to login.
     """
     if request.method == 'POST':
         entered_otp = request.POST.get('otp')
         saved_otp = request.session.get('otp')
         user_id = request.session.get('user_id')
 
+        # Initialize OTP timestamp if not already set
+        otp_timestamp = request.session.get('otp_timestamp')
+        if not otp_timestamp:
+            request.session['otp_timestamp'] = time.time()
+        else:
+            elapsed = time.time() - otp_timestamp
+            if elapsed > 300:  # 300 seconds = 5 minutes
+                messages.error(request, "OTP session expired. Please log in again.")
+                print("[DEBUG] OTP expired after 5 minutes. Elapsed time: {:.2f} seconds".format(elapsed))
+                request.session.flush()
+                return redirect('login')
+
         if entered_otp and saved_otp and int(entered_otp) == int(saved_otp):
-            User = get_user_model()  # Dynamically get the User model
+            User = get_user_model()
             try:
                 user = User.objects.get(id=user_id)
-                login(request, user)  # Log the user in
-                # Clear session data
+                login(request, user)
+                # Clear session data on success
                 request.session.pop('otp', None)
                 request.session.pop('user_id', None)
+                request.session.pop('otp_attempts', None)
+                request.session.pop('otp_timestamp', None)
                 messages.success(request, "Login successful!")
-                # return redirect('post_otp_login_captcha')  # Redirect after successful login
-                return redirect('/')  # Redirect to the desired page
+                return redirect('/')
             except User.DoesNotExist:
                 messages.error(request, "User does not exist.")
         else:
-            messages.error(request, "Invalid OTP. Please try again.")
+            # Handle OTP failure
+            otp_attempts = request.session.get('otp_attempts', 0) + 1
+            request.session['otp_attempts'] = otp_attempts
+            print(f"[DEBUG] Failed OTP attempt #{otp_attempts} for user ID: {user_id}")
+
+            if otp_attempts >= 5:
+                messages.error(request, "Too many failed attempts. Redirecting to login.")
+                print("[DEBUG] Too many failed attempts. Redirecting to login.")
+                request.session.flush()
+                return redirect('login')
+
+            messages.error(request, f"Invalid OTP. Attempt {otp_attempts}/5.")
 
     return render(request, 'accounts/verify-otp.html')
+
 
 # Search Suggestions
 def SearchSuggestions(request):
