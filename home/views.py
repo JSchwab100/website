@@ -45,6 +45,7 @@ from .forms import CaptchaForm
 
 import os
 import json
+import requests
 # from utils.charts import generate_color_palette
 # from .models import Student, Project, Contact
 from .forms import ClientRegistrationForm, RegistrationForm, UserLoginForm, ClientLoginForm, UserPasswordResetForm, UserPasswordChangeForm, UserSetPasswordForm, StudentForm, sd_JoinUsForm, projects_JoinUsForm, NewWebURL, Upskilling_JoinProjectForm
@@ -375,7 +376,9 @@ def login_with_otp(request):
 
     return render(request, 'accounts/sign-in.html')
 
-# OTP Verification
+
+
+
 def verify_otp(request):
     """
     OTP verification during login.

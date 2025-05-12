@@ -71,6 +71,7 @@ CSRF_COOKIE_SAMESITE = 'Strict'
 DEBUG = True
 
 #Ensure v3 Google ReCAPTCHA keys are set
+#To set up new keys, navigate to https://www.google.com/recaptcha/admin/site/
 RECAPTCHA_SITE_KEY = '6LftM_4qAAAAAPLLi31_4GMvkerassybVYocrbJj'
 RECAPTCHA_SECRET_KEY = '6LftM_4qAAAAAKurjw7VyLBeABE0QwAZsxgUemxw'
 
