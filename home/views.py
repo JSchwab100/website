@@ -46,6 +46,7 @@ from .forms import CaptchaForm
 import os
 import json
 import requests
+import bleach
 # from utils.charts import generate_color_palette
 # from .models import Student, Project, Contact
 from .forms import ClientRegistrationForm, RegistrationForm, UserLoginForm, ClientLoginForm, UserPasswordResetForm, UserPasswordChangeForm, UserSetPasswordForm, StudentForm, sd_JoinUsForm, projects_JoinUsForm, NewWebURL, Upskilling_JoinProjectForm
@@ -586,7 +587,6 @@ def register_client(request):
  
     context = { 'form': form }
     return render(request, 'accounts/sign-up-client.html', context)
-
    
 def register(request):
     """
@@ -599,6 +599,8 @@ def register(request):
         if form.is_valid():
             try:
                 user = form.save(commit=False)  # Save user instance without committing
+                user.first_name = bleach.clean(form.cleaned_data['first_name']) # Sanitize input
+                user.last_name = bleach.clean(form.cleaned_data['last_name']) # Sanitize input
                 user.set_password(form.cleaned_data['password1'])  # Hash the password
                 user.save()  # Save the user to the database
                 print("User saved to database.")  # Success log
